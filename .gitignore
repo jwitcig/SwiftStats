@@ -1,4 +1,4 @@
-# Byte-compiled / optimized / DLL files
+led / optimized / DLL files
 __pycache__/
 *.py[cod]
 *$py.class
@@ -87,10 +87,5 @@ ENV/
 
 # Rope project settings
 .ropeproject
-
-# project virtualenv
-SwiftStats/
-
-pip-selfcheck.json
 
 .DS_Store
