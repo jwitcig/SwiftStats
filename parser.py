@@ -189,7 +189,7 @@ def parse_file(file_path):
     with open(file_path) as f:
         raw_lines = f.readlines()
 
-    parsed_file = FileObject(raw_lines)
+    return FileObject(raw_lines)
 
 
 # parse_file(sys.argv[1])
