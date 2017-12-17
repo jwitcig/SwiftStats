@@ -4,7 +4,7 @@ import re
 import sys
 
 def range_contains(range, subset):
-    return set(subset).issubset(set(range))
+    return range[0] <= subset[0] and range[1] >= subset[1]
 
 class FileObject(object):
     raw_lines = None
@@ -81,7 +81,7 @@ class BracketBlock(object):
 
     @property
     def line_range(self):
-        return range(self.first_line_index, self.last_line_index)
+        return (self.first_line_index, self.last_line_index)
 
     @property
     def first_line(self):
@@ -104,18 +104,10 @@ class BracketBlock(object):
 
     @property
     def contained_blocks(self):
-        blocks = [x for x in self.file.blocks if range_contains(self.line_range, x)]
-        return blocks.sort()
+        all_blocks = [x for x in self.file.blocks if x is not self]
 
-    # @property
-    # def contained_blocks(self):
-    #     contained_blocks = []
-    #     for block in self.file.blocks:
-    #         child_block_line_range = range(block.first_line_index, block.last_line_index)
-    #
-    #         if range_contains(self.line_range, child_block_line_range):
-    #             contained_blocks.append(block)
-    #     return contained_blocks
+        contained_blocks = [x for x in all_blocks if range_contains(self.line_range, x.line_range)]
+        return sorted(contained_blocks, key=lambda block: list(block.line_range))
 
     @property
     def parent_block(self):
@@ -159,6 +151,23 @@ class LineItem(object):
             line = str.replace(line, removable, replacable)
         return [word for word in line.split()]
 
+    _keywords = None
+    @property
+    def keywords(self):
+        if self._keywords:
+            return self._keywords
+
+        def items_of_enum(enum_type):
+            return [x for x in enum_type]
+
+        search_words = []
+        search_words.extend(items_of_enum(CodeLineType))
+        search_words.extend(items_of_enum(Publicity))
+
+        # import ipdb; ipdb.set_trace()
+        self._keywords = [x.value for x in search_words if re.search(r'(?<=\s)*('+x.value+')(?=\s)', self.raw) is not None]
+        return self._keywords
+
 class Publicity(Enum):
     public = 'public'
     private = 'private'
@@ -182,14 +191,29 @@ class CodeLineType(Enum):
         return None
 
     def line_is_type(type, raw_line):
-        return re.search(r'(?<=\s)*('+type.value+')(?=\s)', raw_line) is not None
+        return type.value in LineItem(raw_line).keywords
 
 def parse_file(file_path):
-
     with open(file_path) as f:
         raw_lines = f.readlines()
-
     return FileObject(raw_lines)
 
+def process_repo(repo_directory):
+    quantities_collection = []
+    failed_files = []
+    for root, dirs, files in os.walk(repo_directory):
+        for index, file in enumerate([x for x in files if x.endswith(".swift")]):
 
-# parse_file(sys.argv[1])
+            try:
+                parsed_file = parser.parse_file(os.path.join(root, file.title()))
+                types = [x for x in CodeLineType if x.value in ['extension', 'protocol', 'var']]
+
+                quantities_collection.append({type.value: len(parsed_file.lines_of_type(type)) for type in types})
+            except IndexError as e:
+                # import ipdb; ipdb.set_trace()
+                failed_files.append((file.title(), root, e))
+
+    for title, root, exception in failed_files:
+        print(title)
+
+    return quantities_collection
